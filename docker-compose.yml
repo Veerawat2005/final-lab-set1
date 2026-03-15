@@ -2,7 +2,7 @@ services:
 
   # ── PostgreSQL ─────────────────────────────────────────────────────
   postgres:
-    image: postgres:15-alpine
+    image: postgres:17-alpine
     environment:
       POSTGRES_DB:       ${POSTGRES_DB}
       POSTGRES_USER:     ${POSTGRES_USER}
@@ -78,6 +78,9 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro  # <--- บรรทัดนี้ต้องมี!
     depends_on:
       - auth-service
       - task-service
@@ -92,4 +95,3 @@ volumes:
 networks:
   taskboard-net:
     driver: bridge
-

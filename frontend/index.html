@@ -1313,14 +1313,12 @@
         }
       }
 
- function authHeaders() {
-  const currentToken = localStorage.getItem("jwt_token");
-  return {
-    "Content-Type": "application/json",
-    // ต้องมี Bearer และต้องใช้ตัวแปรที่ดึงมาจาก localStorage โดยตรง
-    "Authorization": "Bearer " + currentToken 
-  };
-}
+      function authHeaders() {
+        return {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        };
+      }
 
       /* ─────────────────────────────────────
    TOAST
@@ -1374,26 +1372,21 @@
       }
 
       /* ── APP INIT ── */
- async function initApp(user) {
-  if (!user) return; 
-  currentUser = user;
-
-  document.getElementById("auth-page").classList.add("hidden");
-  document.getElementById("app-page").classList.remove("hidden");
-
-  // ถ้าไม่มี username ให้เอา email มาแสดงแทน ถ้าไม่มี email ให้ขึ้นว่า User
-  const displayName = user.username || user.name || user.email || "User";
-  const initials = displayName.charAt(0).toUpperCase();
-
-  document.getElementById("sidebar-avatar").textContent = initials;
-  document.getElementById("sidebar-name").textContent = displayName;
-  
-  const rb = document.getElementById("sidebar-role-badge");
-  rb.textContent = user.role || "user";
-  rb.className = `role-badge role-${user.role || "user"}`;
-  
-  showPage("tasks");
-}
+      async function initApp(user) {
+        currentUser = user;
+        document.getElementById("auth-page").classList.add("hidden");
+        document.getElementById("app-page").classList.remove("hidden");
+        const initials = (user.username || user.email || "?")
+          .charAt(0)
+          .toUpperCase();
+        document.getElementById("sidebar-avatar").textContent = initials;
+        document.getElementById("sidebar-name").textContent =
+          user.username || user.email;
+        const rb = document.getElementById("sidebar-role-badge");
+        rb.textContent = user.role;
+        rb.className = `role-badge role-${user.role}`;
+        showPage("tasks");
+      }
 
       /* ── NAVIGATION ── (ลบ users page ออก) ── */
       function showPage(page) {
@@ -1411,22 +1404,19 @@
       /* ─────────────────────────────────────
    TASKS — LOAD & RENDER
 ───────────────────────────────────── */
-    async function loadTasks() {
-    const res = await apiFetch(`${API}/api/tasks/`, {
-        method: "GET",
-        headers: authHeaders(), // <--- เรียกใช้ฟังก์ชันที่แก้ข้างบน
-    });
-    
-    // ถ้ายังติด 401 (Unauthorized) โค้ดคุณจะสั่ง doLogout() ทันที 
-    // ซึ่งนั่นคือที่มาของ Toast "Session หมดอายุ" ครับ
-    if (!res.ok) {
-        if (res.status === 401) {
+      async function loadTasks() {
+        const res = await apiFetch(`${API}/api/tasks/`, {
+          headers: authHeaders(),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          if (res.status === 401) {
             toast("Session หมดอายุ กรุณา Login ใหม่", "error");
             doLogout();
+          }
+          return;
         }
-        return;
-    }
-
 
         allTasks = data.tasks || [];
         updateStats();
@@ -1771,6 +1761,20 @@
           if (e.target === e.currentTarget) closeConfirm();
         });
 
+      /* ── AUTO-LOGIN ── */
+      if (token) {
+        (async () => {
+          const res = await fetch(`${API}/api/auth/verify`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const data = await res.json();
+          if (data.valid) initApp(data.user);
+          else {
+            localStorage.removeItem("jwt_token");
+            token = null;
+          }
+        })();
+      }
     </script>
   </body>
 </html>
